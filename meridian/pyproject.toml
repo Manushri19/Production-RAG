@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meridian"
+version = "0.1.0"
+description = "Large-scale GPU-accelerated document processing pipeline"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Meridian Contributors"},
+]
+keywords = ["document-processing", "pdf", "gpu", "docling", "vlm", "embeddings"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # HTTP / API
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.25.0",
+    "aiohttp>=3.9.0",
+    "pydantic>=2.5.0",
+    "python-multipart>=0.0.6",
+
+    # Task queue
+    "celery[redis]>=5.3.0",
+    "redis>=5.0.0",
+
+    # Vector store
+    "qdrant-client>=1.7.0",
+
+    # Sparse vector / BM25 (for hybrid search support)
+    "fastembed>=0.3.0",
+
+    # Image processing
+    "Pillow>=10.0.0",
+
+    # PDF rendering (for image service)
+    "PyMuPDF>=1.23.0",
+
+    # Environment
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+# GPU service dependencies (install on GPU nodes only)
+gpu = [
+    "docling>=2.0.0",
+    "docling-core>=2.0.0",
+    "torch>=2.0.0",
+]
+
+# AWS Bedrock VLM backend (VLM_BACKEND=bedrock) -- no local vision model needed
+bedrock = [
+    "boto3>=1.34.0",
+]
+
+# Worker dependencies (install on CPU worker nodes)
+worker = [
+    "docling-core>=2.0.0",
+]
+
+# Development
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+]
+
+# All dependencies
+all = [
+    "meridian[gpu,bedrock,worker,dev]",
+]
+
+[project.scripts]
+meridian = "meridian.cli.main:main"
+
+[project.urls]
+Repository = "https://github.com/Rajsuthan/meridian"
+Documentation = "https://github.com/Rajsuthan/meridian/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["meridian*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

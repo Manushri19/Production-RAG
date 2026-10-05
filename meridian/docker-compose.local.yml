@@ -1,0 +1,39 @@
+# Meridian Local Infrastructure
+#
+# Isolated Redis + Qdrant for Meridian only.
+# Uses unique ports and named volumes to avoid conflicts with other projects.
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up -d
+#   docker compose -f docker-compose.local.yml down
+#   docker compose -f docker-compose.local.yml down -v   # delete data too
+
+services:
+  redis:
+    container_name: meridian-redis
+    image: redis:7-alpine
+    ports:
+      - "6399:6379"
+    volumes:
+      - meridian_redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  qdrant:
+    container_name: meridian-qdrant
+    image: qdrant/qdrant:latest
+    ports:
+      - "6363:6333"
+      - "6364:6334"
+    volumes:
+      - meridian_qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+
+volumes:
+  meridian_redis_data:
+  meridian_qdrant_data:

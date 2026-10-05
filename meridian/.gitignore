@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+!.env.example
+
+# Logs and data
+logs/
+*.log
+*.pid
+data/
+qdrant_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test output
+test_output*/
+output/
+
+# Debug artifacts
+debug_tables/
+
+# Sample/test documents
+sample_docs/
+
+# Claude
+.claude/
