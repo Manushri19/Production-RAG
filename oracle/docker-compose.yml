@@ -1,0 +1,147 @@
+# Oracle Docker Compose
+#
+# This file orchestrates the Oracle retrieval & generation service.
+# Infrastructure services (Qdrant, Ollama, vLLM) are defined in Meridian's
+# docker-compose.yml. Oracle references them by hostname.
+#
+# Usage:
+#   # Start Oracle + reranker only (Meridian infra must already be running):
+#   docker compose up -d
+#
+#   # Start everything including infra (development convenience):
+#   docker compose --profile infra up -d
+
+services:
+  # ===========================================================================
+  # Oracle API — Online Retrieval + Generation Pipeline (port 8010)
+  # ===========================================================================
+  oracle-api:
+    build:
+      context: .
+      dockerfile: docker/oracle.Dockerfile
+    ports:
+      - "8010:8010"
+    depends_on:
+      reranker:
+        condition: service_healthy
+    environment:
+      # Oracle service
+      - ORACLE_HOST=0.0.0.0
+      - ORACLE_PORT=8010
+      - ORACLE_LOG_LEVEL=INFO
+
+      # Qdrant (shared with Meridian)
+      - QDRANT_HOST=${QDRANT_HOST:-qdrant}
+      - QDRANT_PORT=${QDRANT_PORT:-6333}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-meridian_documents}
+
+      # Ollama (shared with Meridian)
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-qwen3-embedding:4b-q8_0}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-1024}
+
+      # Reranker sidecar
+      - RERANKER_URL=http://reranker:8011
+
+      # vLLM (shared with Meridian)
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://vllm:8000/v1}
+      - VLLM_MODEL=${VLLM_MODEL:-Qwen/Qwen3-VL-8B-Instruct}
+      - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
+      - VLLM_MAX_TOKENS=${VLLM_MAX_TOKENS:-1024}
+      - VLLM_TEMPERATURE=${VLLM_TEMPERATURE:-0.1}
+
+      # Retrieval tuning
+      - HYBRID_TOP_K=${HYBRID_TOP_K:-30}
+      - FINAL_TOP_K=${FINAL_TOP_K:-5}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Reranker Sidecar — BAAI/bge-reranker-v2-m3 (port 8011)
+  # ===========================================================================
+  reranker:
+    build:
+      context: .
+      dockerfile: docker/reranker.Dockerfile
+    ports:
+      - "8011:8011"
+    volumes:
+      # Persist HuggingFace model cache — avoids re-download on restart
+      - reranker_models:/models
+    environment:
+      - RERANKER_MODEL=${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+      - RERANKER_HOST=0.0.0.0
+      - RERANKER_PORT=8011
+      - RERANKER_LOG_LEVEL=INFO
+      - HF_HOME=/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Allow extra time for first model download
+      start_period: 120s
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Infrastructure (optional — use --profile infra to start locally)
+  # These mirror Meridian's docker-compose.yml for standalone dev.
+  # ===========================================================================
+  qdrant:
+    profiles: ["infra"]
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+
+  ollama:
+    profiles: ["infra"]
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  vllm:
+    profiles: ["infra"]
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      --model Qwen/Qwen3-VL-8B-Instruct
+      --quantization fp8
+      --gpu-memory-utilization 0.55
+      --max-num-seqs 128
+      --max-model-len 8192
+      --enable-chunked-prefill
+      --enable-prefix-caching
+
+volumes:
+  reranker_models:
+  qdrant_data:
+  ollama_data:

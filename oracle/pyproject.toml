@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oracle"
+version = "0.1.0"
+description = "Online retrieval and generation pipeline with hybrid search, reranking, and citation-enforced generation"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+keywords = ["rag", "hybrid-search", "reranking", "llm", "qdrant", "materials-engineering"]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.5.0",
+    "sse-starlette>=1.8.0",
+    "qdrant-client>=1.7.0",
+    "fastembed>=0.3.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+reranker = [
+    "sentence-transformers>=2.7.0",
+    "torch>=2.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+    "httpx>=0.25.0",
+]
+all = ["oracle[reranker,dev]"]
+
+[project.scripts]
+oracle = "oracle.api.app:main"
+
+[tool.setuptools.packages.find]
+include = ["oracle*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
